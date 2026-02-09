@@ -1,0 +1,5 @@
+*.venv
+*.csv
+*cifar-10-batches-py
+*.pt
+.DS_Store

@@ -1,0 +1,112 @@
+import torch.nn as nn
+import torch
+import matplotlib.pyplot as plt
+import numpy as np
+import json
+
+from torch.utils.data import DataLoader
+
+from os import listdir
+from os.path import isfile, join
+
+import VAE
+
+
+## this is a cuda implementation
+
+device = torch.device("cuda")
+
+
+def unpickle(file):
+    import pickle
+    with open(file, 'rb') as fo:
+        dict = pickle.load(fo, encoding='bytes')
+    return dict
+
+class CIFAR_DataLoader(torch.utils.data.Dataset):
+
+    def __init__(self,dir,device):
+        self.files = [f for f in listdir(dir) if isfile(join(dir, f))]
+        self.Data = torch.tensor([])
+        self.Labels = torch.tensor([])
+        self.testData =torch.tensor([])
+        self.testLabel =torch.tensor([])
+        for file in self.files:
+            #print(file)
+            if "data" in file:
+                tempData = unpickle(f"{dir}/{file}")
+
+                self.Labels = torch.cat((self.Labels,torch.tensor(tempData[b"labels"])),0)
+
+                self.Data = torch.cat((self.Data,torch.tensor(tempData[b"data"])),0)
+    
+            elif "test" in file:
+                pass
+        #print(self.Data.shape)
+        
+        self.Data = self.Data.reshape(self.Data.shape[0],3,32,32)
+        self.Data = self.Data.to(torch.float32)
+        #print(self.Data.shape)
+        self.Data = (self.Data / 127.5) - 1
+    def __len__(self):
+        return self.Labels.shape[0]
+        
+    def __getitem__(self,index):
+        return self.Data[index] , self.Labels[index]
+
+
+
+
+batch_size = 128
+
+Data = CIFAR_DataLoader("cifar-10-batches-py",device)
+train_dataloader = DataLoader(Data, batch_size=batch_size, shuffle=True)
+
+latentDim =64
+Model = VAE.VAE(latentDim,device).to(device)
+
+
+criterion = nn.MSELoss(reduction="sum")
+optimizer = torch.optim.Adam(Model.parameters(), lr=2e-4, betas=(0.9, 0.999))
+
+epochs = 200
+
+losses = []
+kls = []
+rls = []
+
+for ep in range(epochs):
+
+    for i, data in enumerate(train_dataloader):
+        optimizer.zero_grad()
+        X = data[0].to(device)
+        O , u , log_s = Model(X)
+        kl = + ((-0.5 * torch.sum(1 + (2*log_s) - (u**2) - torch.exp(2*log_s) ))/ X.size(0))
+        rl = (criterion(O,X)/ X.size(0)) 
+        loss = rl+kl
+        
+        loss.backward()
+        optimizer.step()
+        
+        
+        if i % batch_size == 0:
+            losses.append(loss.item())
+            rls.append(rl)
+            kls.append(kl)
+            print("==========================")
+            print(f"Epoch {ep} : Step {i} \n: VAE_loss {loss.item()} : KL div {kl} : Recon {rl}")
+            print("==========================")
+
+
+
+
+
+torch.save(Model.state_dict(), 'model_weights.pth')
+
+with open("losses.json", "w") as fp:
+    json.dump(losses, fp)
+with open("kls.json", "w") as fp:
+    json.dump(kls, fp)
+with open("rls.json", "w") as fp:
+    json.dump(rls, fp)
+
