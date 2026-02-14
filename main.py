@@ -3,6 +3,8 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import json
+import time
+import datetime
 
 from torch.utils.data import DataLoader
 
@@ -101,42 +103,59 @@ for ep in range(epochs):
         
         loss.backward()
         optimizer.step()
+
+       
         
         
         if i % batch_size == 0:
             losses.append(loss.detach())
             rls.append(rl.detach())
             kls.append(kl.detach())
+            info = f"Epoch {ep} : Step {i} \n: VAE_loss {loss.detach()} : KL div {kl.detach()} : Recon {rl.detach()}"
+            with open("log.txt","a") as f:
+                f.write(info)
             print("==========================")
             print(f"Epoch {ep} : Step {i} \n: VAE_loss {loss.detach()} : KL div {kl.detach()} : Recon {rl.detach()}")
             print("==========================")
+    
+    if ((ep % 50) == 0) and (ep != 0):
+        ts = time.time()
+        stmp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+        torch.save({
+            "Epoch":ep,
+            "Model" : Model.state_dict(),
+            "time"    : stmp,
+            "LD" : latentDim,
+            "Batch_Size" : batch_size,
+            'Optimizer': optimizer.state_dict(),
+            'MSE' : True,
+            'ADAM' : True,
+            'Losses':losses,
+            'KL': kls,
+            'Recon':rls,
+            'Beta VAE': False
+                    }, f'Checkpoint_Meta.pt')
 
 
 
 
-torch.save(Model.state_dict(), 'model_weights.pth')
+
+ts = time.time()
+stmp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+torch.save({
+            "Epoch":ep,
+            "Model" : Model.state_dict(),
+            "time"    : stmp,
+            "LD" : latentDim,
+            "Batch_Size" : batch_size,
+            'Optimizer': optimizer.state_dict(),
+            'MSE' : True,
+            'ADAM' : True,
+            'Losses':losses,
+            'KL': kls,
+            'Recon':rls,
+            'Beta VAE': False
+                    }, f'Checkpoint_Meta.pt')
 
 
-for i in losses:
-    try:
-        i = float(i[0])
-    except:
-        i = float(i)
-for i in kls:
-    try:
-        i = float(i[0])
-    except:
-        i = float(i)
-for i in rls:
-    try:
-        i = float(i[0])
-    except:
-        i = float(i)
-
-with open("losses.json", "w") as fp:
-    json.dump(losses, fp)
-with open("kls.json", "w") as fp:
-    json.dump(kls, fp)
-with open("rls.json", "w") as fp:
-    json.dump(rls, fp)
 
