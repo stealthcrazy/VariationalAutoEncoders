@@ -17,6 +17,19 @@ import VAE
 device = torch.device("cuda")
 
 
+
+## copy pasted from Pytorch 
+torch.backends.fp32_precision = "tf32"
+torch.backends.cudnn.conv.fp32_precision = "tf32"
+
+# The flag below controls whether to allow TF32 on matmul. This flag defaults to False
+# in PyTorch 1.12 and later.
+torch.backends.cuda.matmul.allow_tf32 = True
+
+# The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+torch.backends.cudnn.allow_tf32 = True
+
+
 def unpickle(file):
     import pickle
     with open(file, 'rb') as fo:
@@ -64,6 +77,7 @@ train_dataloader = DataLoader(Data, batch_size=batch_size, shuffle=True)
 
 latentDim =64
 Model = VAE.VAE(latentDim,device).to(device)
+#Model = torch.compile(Model,mode="reduce-overhead")
 
 
 criterion = nn.MSELoss(reduction="sum")
@@ -90,18 +104,34 @@ for ep in range(epochs):
         
         
         if i % batch_size == 0:
-            losses.append(loss.item())
-            rls.append(rl)
-            kls.append(kl)
+            losses.append(loss.detach())
+            rls.append(rl.detach())
+            kls.append(kl.detach())
             print("==========================")
-            print(f"Epoch {ep} : Step {i} \n: VAE_loss {loss.item()} : KL div {kl} : Recon {rl}")
+            print(f"Epoch {ep} : Step {i} \n: VAE_loss {loss.detach()} : KL div {kl.detach()} : Recon {rl.detach()}")
             print("==========================")
-
 
 
 
 
 torch.save(Model.state_dict(), 'model_weights.pth')
+
+
+for i in losses:
+    try:
+        i = float(i[0])
+    except:
+        i = float(i)
+for i in kls:
+    try:
+        i = float(i[0])
+    except:
+        i = float(i)
+for i in rls:
+    try:
+        i = float(i[0])
+    except:
+        i = float(i)
 
 with open("losses.json", "w") as fp:
     json.dump(losses, fp)
