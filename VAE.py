@@ -69,6 +69,7 @@ class VAE_Decoder(nn.Module):
         self.M1 = nn.Sequential(
             nn.Linear(latent_dim,4*4*1024),
             nn.Unflatten(1,(1024,4,4)),
+            nn.ReLU(),
             nn.BatchNorm2d(1024),
             nn.ConvTranspose2d(1024,512,5,1),
             nn.BatchNorm2d(512),
@@ -77,11 +78,10 @@ class VAE_Decoder(nn.Module):
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.ConvTranspose2d(256,3,2,2),
-            nn.BatchNorm2d(3),
             nn.Tanh(),
         )
         for m in self.M1:
-            if isinstance(m, (nn.Conv2d, nn.Linear)):
+            if isinstance(m, (nn.ConvTranspose2d, nn.Linear)):
                 nn.init.normal_(m.weight, mean=0, std=0.02)
     
     def forward(self,X):

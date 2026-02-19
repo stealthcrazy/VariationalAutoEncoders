@@ -6,4 +6,6 @@
 VAE_Test.ipynb
 GenericModelWeights
 ModelWeightsCudaAWS
-Model_500epoch_128ld.pth
+*.pth
+*.pyc
+__pycache__

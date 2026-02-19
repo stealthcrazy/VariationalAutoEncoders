@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-import matplotlib.pyplot as plt
 import numpy as np
 import json
 import time
@@ -77,15 +76,17 @@ batch_size = 128
 Data = CIFAR_DataLoader("cifar-10-batches-py",device)
 train_dataloader = DataLoader(Data, batch_size=batch_size, shuffle=True)
 
-latentDim =64
+latentDim =32
 Model = VAE.VAE(latentDim,device).to(device)
 #Model = torch.compile(Model,mode="reduce-overhead")
 
 
 criterion = nn.MSELoss(reduction="sum")
-optimizer = torch.optim.Adam(Model.parameters(), lr=2e-4, betas=(0.9, 0.999))
+optimizer = torch.optim.Adam(Model.parameters(), lr=1e-4, betas=(0.9, 0.99))
 
-epochs = 200
+epochs = 1000
+
+beta = 10
 
 losses = []
 kls = []
@@ -97,7 +98,7 @@ for ep in range(epochs):
         optimizer.zero_grad()
         X = data[0].to(device)
         O , u , log_s = Model(X)
-        kl = + ((-0.5 * torch.sum(1 + (2*log_s) - (u**2) - torch.exp(2*log_s) ))/ X.size(0))
+        kl = beta*((-0.5 * torch.sum(1 + (2*log_s) - (u**2) - torch.exp(2*log_s) ))/ X.size(0))
         rl = (criterion(O,X)/ X.size(0)) 
         loss = rl+kl
         
@@ -107,11 +108,11 @@ for ep in range(epochs):
        
         
         
-        if i % batch_size == 0:
+        if i % 100 == 0:
             losses.append(loss.detach())
             rls.append(rl.detach())
             kls.append(kl.detach())
-            info = f"Epoch {ep} : Step {i} \n: VAE_loss {loss.detach()} : KL div {kl.detach()} : Recon {rl.detach()}"
+            info = f"Epoch {ep} : Step {i} \n: VAE_loss {loss.detach()} : KL div {kl.detach()} : Recon {rl.detach()} \n"
             with open("log.txt","a") as f:
                 f.write(info)
             print("==========================")
